@@ -5,27 +5,15 @@ on:
     branches: [main]
 
 jobs:
-  prepare:
-    runs-on: ubuntu-latest
-    outputs:
-      sha_tag: ${{ steps.sha.outputs.tag }}
-      owner: ${{ steps.owner.outputs.name }}
-    steps:
-      - name: Short SHA
-        id: sha
-        run: echo "tag=sha-$(echo $GITHUB_SHA | head -c 7)" >> $GITHUB_OUTPUT
-      - name: Lowercase owner
-        id: owner
-        run: echo "name=${GITHUB_REPOSITORY_OWNER,,}" >> $GITHUB_OUTPUT
-
   build-backend:
-    needs: prepare
     runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
     steps:
       - uses: actions/checkout@v4
+      - name: Set lowercase owner
+        run: echo "OWNER=${GITHUB_REPOSITORY_OWNER,,}" >> $GITHUB_ENV
       - uses: docker/login-action@v3
         with:
           registry: ghcr.io
@@ -35,18 +23,17 @@ jobs:
         with:
           context: ./backend
           push: true
-          tags: |
-            ghcr.io/${{ needs.prepare.outputs.owner }}/fitness-tracker-backend:latest
-            ghcr.io/${{ needs.prepare.outputs.owner }}/fitness-tracker-backend:${{ needs.prepare.outputs.sha_tag }}
+          tags: ghcr.io/${{ env.OWNER }}/fitness-tracker-backend:latest
 
   build-frontend:
-    needs: prepare
     runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
     steps:
       - uses: actions/checkout@v4
+      - name: Set lowercase owner
+        run: echo "OWNER=${GITHUB_REPOSITORY_OWNER,,}" >> $GITHUB_ENV
       - uses: docker/login-action@v3
         with:
           registry: ghcr.io
@@ -56,29 +43,4 @@ jobs:
         with:
           context: ./frontend
           push: true
-          tags: |
-            ghcr.io/${{ needs.prepare.outputs.owner }}/fitness-tracker-frontend:latest
-            ghcr.io/${{ needs.prepare.outputs.owner }}/fitness-tracker-frontend:${{ needs.prepare.outputs.sha_tag }}
-
-  update-manifests:
-    needs: [prepare, build-backend, build-frontend]
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          repository: MarcHerzig/argo-homelab
-          token: ${{ secrets.ARGO_REPO_TOKEN }}
-      - name: Update image tags
-        env:
-          TAG: ${{ needs.prepare.outputs.sha_tag }}
-          OWNER: ${{ needs.prepare.outputs.owner }}
-        run: |
-          sed -i "s|ghcr.io/${OWNER}/fitness-tracker-backend:.*|ghcr.io/${OWNER}/fitness-tracker-backend:${TAG}|" apps/fitness/backend.yaml
-          sed -i "s|ghcr.io/${OWNER}/fitness-tracker-frontend:.*|ghcr.io/${OWNER}/fitness-tracker-frontend:${TAG}|" apps/fitness/frontend.yaml
-      - name: Commit and push
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add apps/fitness/backend.yaml apps/fitness/frontend.yaml
-          git diff --cached --quiet || git commit -m "chore: update fitness images to ${{ needs.prepare.outputs.sha_tag }}"
-          git push
+          tags: ghcr.io/${{ env.OWNER }}/fitness-tracker-frontend:latest
