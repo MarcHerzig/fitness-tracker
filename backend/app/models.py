@@ -20,6 +20,24 @@ class User(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     activities: Mapped[list["Activity"]] = relationship(back_populates="user", cascade="all, delete-orphan")
+    exercise_templates: Mapped[list["ExerciseTemplate"]] = relationship(back_populates="user", cascade="all, delete-orphan")
+    body_weights: Mapped[list["BodyWeight"]] = relationship(back_populates="user", cascade="all, delete-orphan")
+
+
+class ExerciseTemplate(Base):
+    """User's personal exercise list (e.g. Bizeps, Klimmzüge, Laufen)."""
+    __tablename__ = "exercise_templates"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    name: Mapped[str] = mapped_column(String(100), nullable=False)
+    weight_kg: Mapped[float | None] = mapped_column(Float)
+    is_duration_based: Mapped[bool] = mapped_column(Boolean, default=False)  # True for Laufen (10min/set)
+    sort_order: Mapped[int] = mapped_column(Integer, default=0)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+
+    user: Mapped["User"] = relationship(back_populates="exercise_templates")
+    activity_exercises: Mapped[list["ActivityExercise"]] = relationship(back_populates="template")
 
 
 class Activity(Base):
@@ -28,47 +46,36 @@ class Activity(Base):
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
     type: Mapped[str] = mapped_column(String(20), nullable=False)  # 'endurance' | 'strength'
-    subtype: Mapped[str] = mapped_column(String(50), nullable=False)  # 'cycling' | 'running' | 'weightlifting' | ...
+    subtype: Mapped[str] = mapped_column(String(50), nullable=False)
     activity_date: Mapped[date] = mapped_column(Date, nullable=False)
-    duration_minutes: Mapped[int] = mapped_column(Integer, nullable=False)
+    distance_km: Mapped[float | None] = mapped_column(Float)  # endurance only
+    stars: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     notes: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     user: Mapped["User"] = relationship(back_populates="activities")
-    endurance_data: Mapped["EnduranceData | None"] = relationship(back_populates="activity", cascade="all, delete-orphan")
-    exercises: Mapped[list["Exercise"]] = relationship(back_populates="activity", cascade="all, delete-orphan", order_by="Exercise.order")
+    activity_exercises: Mapped[list["ActivityExercise"]] = relationship(back_populates="activity", cascade="all, delete-orphan")
 
 
-class EnduranceData(Base):
-    __tablename__ = "endurance_data"
-
-    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    activity_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("activities.id"), unique=True, nullable=False)
-    distance_km: Mapped[float] = mapped_column(Float, nullable=False)
-
-    activity: Mapped["Activity"] = relationship(back_populates="endurance_data")
-
-
-class Exercise(Base):
-    __tablename__ = "exercises"
+class ActivityExercise(Base):
+    """A specific exercise done in a strength activity."""
+    __tablename__ = "activity_exercises"
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     activity_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("activities.id"), nullable=False)
-    name: Mapped[str] = mapped_column(String(100), nullable=False)
-    order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    template_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("exercise_templates.id"), nullable=False)
+    sets_completed: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
 
-    activity: Mapped["Activity"] = relationship(back_populates="exercises")
-    sets: Mapped[list["ExerciseSet"]] = relationship(back_populates="exercise", cascade="all, delete-orphan", order_by="ExerciseSet.set_number")
+    activity: Mapped["Activity"] = relationship(back_populates="activity_exercises")
+    template: Mapped["ExerciseTemplate"] = relationship(back_populates="activity_exercises")
 
 
-class ExerciseSet(Base):
-    __tablename__ = "exercise_sets"
+class BodyWeight(Base):
+    __tablename__ = "body_weights"
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    exercise_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("exercises.id"), nullable=False)
-    set_number: Mapped[int] = mapped_column(Integer, nullable=False)
-    reps: Mapped[int | None] = mapped_column(Integer)
-    weight_kg: Mapped[float | None] = mapped_column(Float)
-    rest_seconds: Mapped[int | None] = mapped_column(Integer)
+    user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    measured_at: Mapped[date] = mapped_column(Date, nullable=False)
+    weight_kg: Mapped[float] = mapped_column(Float, nullable=False)
 
-    exercise: Mapped["Exercise"] = relationship(back_populates="sets")
+    user: Mapped["User"] = relationship(back_populates="body_weights")

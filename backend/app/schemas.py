@@ -16,7 +16,6 @@ class UserOut(BaseModel):
     username: str
     email: str
     created_at: datetime
-
     model_config = {"from_attributes": True}
 
 
@@ -30,30 +29,43 @@ class LoginRequest(BaseModel):
     password: str
 
 
-# Activities
-class ExerciseSetIn(BaseModel):
-    set_number: int
-    reps: int | None = None
+# Exercise templates
+class ExerciseTemplateCreate(BaseModel):
+    name: str
     weight_kg: float | None = None
-    rest_seconds: int | None = None
+    is_duration_based: bool = False
+    sort_order: int = 0
 
 
-class ExerciseSetOut(ExerciseSetIn):
+class ExerciseTemplateUpdate(BaseModel):
+    name: str | None = None
+    weight_kg: float | None = None
+    is_duration_based: bool | None = None
+    sort_order: int | None = None
+    is_active: bool | None = None
+
+
+class ExerciseTemplateOut(BaseModel):
     id: uuid.UUID
+    name: str
+    weight_kg: float | None
+    is_duration_based: bool
+    sort_order: int
+    is_active: bool
     model_config = {"from_attributes": True}
 
 
-class ExerciseIn(BaseModel):
-    name: str
-    order: int = 0
-    sets: list[ExerciseSetIn] = []
+# Activities
+class ActivityExerciseIn(BaseModel):
+    template_id: uuid.UUID
+    sets_completed: int
 
 
-class ExerciseOut(BaseModel):
+class ActivityExerciseOut(BaseModel):
     id: uuid.UUID
-    name: str
-    order: int
-    sets: list[ExerciseSetOut]
+    template_id: uuid.UUID
+    sets_completed: int
+    template: ExerciseTemplateOut
     model_config = {"from_attributes": True}
 
 
@@ -61,10 +73,9 @@ class ActivityCreate(BaseModel):
     type: str  # 'endurance' | 'strength'
     subtype: str
     activity_date: date
-    duration_minutes: int
+    distance_km: float | None = None
     notes: str | None = None
-    distance_km: float | None = None  # endurance only
-    exercises: list[ExerciseIn] = []  # strength only
+    exercises: list[ActivityExerciseIn] = []
 
 
 class ActivityOut(BaseModel):
@@ -72,40 +83,48 @@ class ActivityOut(BaseModel):
     type: str
     subtype: str
     activity_date: date
-    duration_minutes: int
+    distance_km: float | None
+    stars: int
     notes: str | None
     created_at: datetime
-    distance_km: float | None = None
-    exercises: list[ExerciseOut] = []
+    activity_exercises: list[ActivityExerciseOut] = []
     model_config = {"from_attributes": True}
 
 
-# Stats
-class WeeklySummary(BaseModel):
-    week_start: date
-    total_activities: int
-    total_duration_minutes: int
-    total_distance_km: float
-    total_volume_kg: float
+# Body weight
+class BodyWeightCreate(BaseModel):
+    measured_at: date
+    weight_kg: float
 
 
-class MonthlySummary(BaseModel):
-    year: int
-    month: int
-    total_activities: int
-    total_duration_minutes: int
-    total_distance_km: float
-    total_volume_kg: float
+class BodyWeightOut(BaseModel):
+    id: uuid.UUID
+    measured_at: date
+    weight_kg: float
+    model_config = {"from_attributes": True}
 
 
-class PersonalRecord(BaseModel):
-    exercise_name: str
-    max_weight_kg: float
-    max_reps: int | None
-    achieved_on: date
+# Dashboard / Stats
+class DayStars(BaseModel):
+    date: date
+    stars: int  # 0–3 combined across all activities
 
 
-class StreakInfo(BaseModel):
-    current_streak: int
-    longest_streak: int
-    last_activity_date: date | None
+class UserDashboard(BaseModel):
+    user_id: uuid.UUID
+    username: str
+    today_stars: int
+    week: list[DayStars]  # last 7 days
+    two_week_total_stars: int
+    two_week_training_days: int
+    last_weight: float | None
+    weight_history: list[BodyWeightOut]
+
+
+class DashboardOut(BaseModel):
+    marc: UserDashboard | None
+    pia: UserDashboard | None
+
+
+class WeeklyStarsOut(BaseModel):
+    days: list[DayStars]

@@ -13,7 +13,7 @@ async function request(method, path, body) {
   const res = await fetch(`${BASE}${path}`, {
     method,
     headers,
-    body: body ? JSON.stringify(body) : undefined
+    body: body ? JSON.stringify(body) : undefined,
   });
 
   if (res.status === 401) {
@@ -34,23 +34,22 @@ async function request(method, path, body) {
 
 export const api = {
   login: (username, password) => request('POST', '/auth/login', { username, password }),
-  register: (username, email, password) => request('POST', '/auth/register', { username, email, password }),
   me: () => request('GET', '/auth/me'),
 
   getActivities: (params = {}) => {
     const q = new URLSearchParams(params).toString();
     return request('GET', `/activities${q ? '?' + q : ''}`);
   },
-  getActivity: (id) => request('GET', `/activities/${id}`),
   createActivity: (data) => request('POST', '/activities', data),
   deleteActivity: (id) => request('DELETE', `/activities/${id}`),
-  exportCsv: () => {
-    const t = get(token);
-    window.open(`${BASE}/activities/export/csv?token=${t}`, '_blank');
-  },
 
-  weeklyStats: () => request('GET', '/stats/weekly'),
-  monthlyStats: () => request('GET', '/stats/monthly'),
-  prs: () => request('GET', '/stats/prs'),
-  streak: () => request('GET', '/stats/streak')
+  getExercises: () => request('GET', '/exercises'),
+  createExercise: (data) => request('POST', '/exercises', data),
+  updateExercise: (id, data) => request('PATCH', `/exercises/${id}`, data),
+  deleteExercise: (id) => request('DELETE', `/exercises/${id}`),
+
+  getBodyWeights: () => request('GET', '/bodyweight'),
+  addBodyWeight: (data) => request('POST', '/bodyweight', data),
+
+  dashboard: () => request('GET', '/stats/dashboard'),
 };
