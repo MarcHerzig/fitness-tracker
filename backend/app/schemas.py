@@ -110,6 +110,14 @@ class DayStars(BaseModel):
     stars: int  # 0–3 combined across all activities
 
 
+class MonthStars(BaseModel):
+    year: int
+    month: int
+    label: str   # "Jan 25", "Feb 25", etc.
+    stars: int   # total capped daily stars summed for the month
+    training_days: int
+
+
 class UserDashboard(BaseModel):
     user_id: uuid.UUID
     username: str
@@ -119,6 +127,7 @@ class UserDashboard(BaseModel):
     two_week_training_days: int
     last_weight: float | None
     weight_history: list[BodyWeightOut]
+    monthly_stars: list[MonthStars]  # last 6 months
 
 
 class DashboardOut(BaseModel):

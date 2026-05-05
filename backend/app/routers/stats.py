@@ -1,3 +1,4 @@
+from collections import defaultdict
 from datetime import date, timedelta
 
 from fastapi import APIRouter, Depends
@@ -7,47 +8,86 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import get_db
 from app.models import Activity, BodyWeight, User
 from app.routers.auth import get_current_user
-from app.schemas import DashboardOut, DayStars, UserDashboard, BodyWeightOut
+from app.schemas import DashboardOut, DayStars, MonthStars, UserDashboard, BodyWeightOut
 
 router = APIRouter(prefix="/stats", tags=["stats"])
+
+MONTHS_DE = ["", "Jan", "Feb", "Mär", "Apr", "Mai", "Jun",
+             "Jul", "Aug", "Sep", "Okt", "Nov", "Dez"]
+
+
+def _month_label(year: int, month: int) -> str:
+    return f"{MONTHS_DE[month]} {str(year)[2:]}"
 
 
 async def build_user_dashboard(db: AsyncSession, user: User) -> UserDashboard:
     today = date.today()
     two_weeks_ago = today - timedelta(days=13)
 
-    # All activities in last 14 days
+    # Last 14 days
     result = await db.execute(
         select(Activity.activity_date, Activity.stars)
         .where(Activity.user_id == user.id, Activity.activity_date >= two_weeks_ago)
     )
-    rows = result.all()
-
-    # Group by date, sum stars capped at 3
-    from collections import defaultdict
     by_date: dict[date, int] = defaultdict(int)
-    for d, s in rows:
+    for d, s in result.all():
         by_date[d] = min(by_date[d] + s, 3)
 
-    # Week strip (last 7 days)
-    week = []
-    for i in range(6, -1, -1):
-        d = today - timedelta(days=i)
-        week.append(DayStars(date=d, stars=by_date.get(d, 0)))
-
-    # Today stars
+    week = [DayStars(date=today - timedelta(days=i), stars=by_date.get(today - timedelta(days=i), 0))
+            for i in range(6, -1, -1)]
     today_stars = by_date.get(today, 0)
-
-    # 2-week totals
     two_week_total_stars = sum(by_date.values())
-    two_week_training_days = len([s for s in by_date.values() if s > 0])
+    two_week_training_days = sum(1 for s in by_date.values() if s > 0)
+
+    # Last 6 months
+    six_months_ago = date(today.year, today.month, 1)
+    for _ in range(5):
+        if six_months_ago.month == 1:
+            six_months_ago = date(six_months_ago.year - 1, 12, 1)
+        else:
+            six_months_ago = date(six_months_ago.year, six_months_ago.month - 1, 1)
+
+    monthly_result = await db.execute(
+        select(Activity.activity_date, Activity.stars)
+        .where(Activity.user_id == user.id, Activity.activity_date >= six_months_ago)
+    )
+    # Per day capped, then sum per month
+    day_stars: dict[date, int] = defaultdict(int)
+    for d, s in monthly_result.all():
+        day_stars[d] = min(day_stars[d] + s, 3)
+
+    month_data: dict[tuple, dict] = {}
+    for d, s in day_stars.items():
+        key = (d.year, d.month)
+        if key not in month_data:
+            month_data[key] = {"stars": 0, "training_days": 0}
+        month_data[key]["stars"] += s
+        if s > 0:
+            month_data[key]["training_days"] += 1
+
+    monthly_stars = []
+    cur = six_months_ago
+    for _ in range(6):
+        key = (cur.year, cur.month)
+        data = month_data.get(key, {"stars": 0, "training_days": 0})
+        monthly_stars.append(MonthStars(
+            year=cur.year,
+            month=cur.month,
+            label=_month_label(cur.year, cur.month),
+            stars=data["stars"],
+            training_days=data["training_days"],
+        ))
+        if cur.month == 12:
+            cur = date(cur.year + 1, 1, 1)
+        else:
+            cur = date(cur.year, cur.month + 1, 1)
 
     # Body weight
     bw_result = await db.execute(
         select(BodyWeight)
         .where(BodyWeight.user_id == user.id)
         .order_by(BodyWeight.measured_at.desc())
-        .limit(30)
+        .limit(60)
     )
     weights = bw_result.scalars().all()
     last_weight = weights[0].weight_kg if weights else None
@@ -61,6 +101,7 @@ async def build_user_dashboard(db: AsyncSession, user: User) -> UserDashboard:
         two_week_training_days=two_week_training_days,
         last_weight=last_weight,
         weight_history=[BodyWeightOut.model_validate(w) for w in reversed(weights)],
+        monthly_stars=monthly_stars,
     )
 
 
@@ -79,19 +120,3 @@ async def dashboard(
         marc=await build_user_dashboard(db, marc) if marc else None,
         pia=await build_user_dashboard(db, pia) if pia else None,
     )
-
-
-@router.get("/stars/week", response_model=list[DayStars])
-async def stars_week(
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    today = date.today()
-    week_ago = today - timedelta(days=6)
-    result = await db.execute(
-        select(Activity.activity_date, func.sum(Activity.stars))
-        .where(Activity.user_id == current_user.id, Activity.activity_date >= week_ago)
-        .group_by(Activity.activity_date)
-    )
-    by_date = {d: min(int(s), 3) for d, s in result.all()}
-    return [DayStars(date=today - timedelta(days=i), stars=by_date.get(today - timedelta(days=i), 0)) for i in range(6, -1, -1)]

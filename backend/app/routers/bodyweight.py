@@ -1,4 +1,6 @@
-from fastapi import APIRouter, Depends
+import uuid
+
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -36,3 +38,22 @@ async def add_weight(
     await db.commit()
     await db.refresh(entry)
     return entry
+
+
+@router.delete("/{weight_id}", status_code=204)
+async def delete_weight(
+    weight_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    result = await db.execute(
+        select(BodyWeight).where(
+            BodyWeight.id == weight_id,
+            BodyWeight.user_id == current_user.id,
+        )
+    )
+    entry = result.scalar_one_or_none()
+    if not entry:
+        raise HTTPException(status_code=404, detail="Not found")
+    await db.delete(entry)
+    await db.commit()

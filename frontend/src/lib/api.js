@@ -50,6 +50,7 @@ export const api = {
 
   getBodyWeights: () => request('GET', '/bodyweight'),
   addBodyWeight: (data) => request('POST', '/bodyweight', data),
+  deleteBodyWeight: (id) => request('DELETE', `/bodyweight/${id}`),
 
   dashboard: () => request('GET', '/stats/dashboard'),
 };
