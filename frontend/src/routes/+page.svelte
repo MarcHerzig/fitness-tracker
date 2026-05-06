@@ -13,6 +13,8 @@
   let weightError = '';
 
   const DAY_LABELS = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'];
+  const MONTHS_DE = ['', 'Jan', 'Feb', 'Mär', 'Apr', 'Mai', 'Jun',
+                     'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Dez'];
 
   const EMOJI = {
     cycling:  '🚴',
@@ -22,13 +24,49 @@
     strength: '🏋️',
   };
 
+  // Month browser state — always resets to today on page load
+  const NOW = new Date(); NOW.setHours(0, 0, 0, 0);
+  let viewYear  = NOW.getFullYear();
+  let viewMonth = NOW.getMonth() + 1;
+
+  $: isCurrentMonth = viewYear === NOW.getFullYear() && viewMonth === NOW.getMonth() + 1;
+  $: todayDay = isCurrentMonth ? NOW.getDate() : -1;
+
+  // Earliest available month from dashboard data
+  $: earliestStr = dashboard?.marc?.daily_history?.[0]?.date
+                ?? dashboard?.pia?.daily_history?.[0]?.date ?? null;
+  $: {
+    const [ey, em] = earliestStr?.split('-').map(Number) ?? [1900, 1];
+    canGoPrev = viewYear > ey || (viewYear === ey && viewMonth > em);
+  }
+  let canGoPrev = true;
+
+  function prevMonth() {
+    if (!canGoPrev) return;
+    if (viewMonth === 1) { viewYear--; viewMonth = 12; }
+    else viewMonth--;
+  }
+  function nextMonth() {
+    if (isCurrentMonth) return;
+    if (viewMonth === 12) { viewYear++; viewMonth = 1; }
+    else viewMonth++;
+  }
+  function goToToday() { viewYear = NOW.getFullYear(); viewMonth = NOW.getMonth() + 1; }
+
+  function getViewMonthDays(person) {
+    return (person?.daily_history ?? []).filter(d => {
+      const [y, m] = d.date.split('-').map(Number);
+      return y === viewYear && m === viewMonth;
+    });
+  }
+
   function activityEmoji(subtypes) {
     return subtypes.map(s => EMOJI[s] ?? '●').join('');
   }
 
   function todayEmoji(person) {
-    const todayStr = new Date().toISOString().split('T')[0];
-    const day = person.month?.find(d => d.date === todayStr);
+    const todayStr = NOW.toISOString().split('T')[0];
+    const day = person.daily_history?.find(d => d.date === todayStr);
     if (day?.subtypes?.length) return activityEmoji(day.subtypes);
     return person.today_stars > 0 ? '🏋️' : '';
   }
@@ -43,11 +81,10 @@
     }
   });
 
-  // Build month grid: array of {day, stars, subtypes} | null (empty offset cells)
   function monthGrid(monthDays) {
     if (!monthDays?.length) return [];
     const first = new Date(monthDays[0].date + 'T00:00:00');
-    const offset = (first.getDay() + 6) % 7; // Mon=0 … Sun=6
+    const offset = (first.getDay() + 6) % 7;
     const cells = Array(offset).fill(null);
     for (const d of monthDays) {
       const dayNum = new Date(d.date + 'T00:00:00').getDate();
@@ -107,11 +144,30 @@
       </div>
     </div>
 
+    <!-- Month navigation (shared for both cards) -->
+    <div class="flex items-center justify-between px-1">
+      <button on:click={prevMonth} disabled={!canGoPrev}
+        class="text-gray-300 text-2xl w-8 text-center disabled:opacity-20">‹</button>
+      <span class="text-sm font-semibold text-gray-200">
+        {MONTHS_DE[viewMonth]} {viewYear}
+      </span>
+      <div class="flex items-center gap-2">
+        {#if !isCurrentMonth}
+          <button on:click={goToToday}
+            class="text-xs text-primary border border-primary/40 px-2 py-0.5 rounded-lg">
+            Heute
+          </button>
+        {/if}
+        <button on:click={nextMonth} disabled={isCurrentMonth}
+          class="text-gray-300 text-2xl w-8 text-center disabled:opacity-20">›</button>
+      </div>
+    </div>
+
     <!-- Side-by-side cards -->
     <div class="grid grid-cols-2 gap-3">
       {#each [dashboard.marc, dashboard.pia] as person}
         {#if person}
-          {@const grid = monthGrid(person.month)}
+          {@const grid = monthGrid(getViewMonthDays(person))}
           <div class="card space-y-3">
             <div class="flex items-center justify-between">
               <span class="font-bold capitalize">{person.username}</span>
@@ -120,20 +176,20 @@
 
             <!-- Month calendar -->
             <div>
-              <!-- Day-of-week header -->
               <div class="grid grid-cols-7 gap-px mb-1">
                 {#each DAY_LABELS as lbl}
                   <div class="text-center text-gray-600 text-xs leading-none">{lbl}</div>
                 {/each}
               </div>
-              <!-- Day cells -->
               <div class="grid grid-cols-7 gap-px">
                 {#each grid as cell}
                   {#if cell === null}
                     <div></div>
                   {:else}
                     <div class="flex flex-col items-center gap-0.5">
-                      <div class="text-gray-600 text-xs leading-none">{cell.day}</div>
+                      <div class="text-xs leading-none {cell.day === todayDay ? 'text-red-400 font-bold' : 'text-gray-600'}">
+                        {cell.day}
+                      </div>
                       <div class="w-full aspect-square rounded-sm {starColor(cell.stars)} flex items-center justify-center overflow-hidden">
                         {#if cell.stars > 0}
                           <span style="font-size:0.65rem;line-height:1">{activityEmoji(cell.subtypes)}</span>
@@ -176,10 +232,8 @@
                 <div class="flex items-center gap-1">
                   <span class="text-xs text-gray-500 w-11 shrink-0">{m.label}</span>
                   <div class="w-10 shrink-0 bg-gray-800 rounded-full h-2.5 overflow-hidden">
-                    <div
-                      class="h-2.5 rounded-full bg-primary transition-all"
-                      style="width: {m.stars > 0 ? Math.max(4, Math.round(m.stars / maxS * 100)) : 0}%"
-                    ></div>
+                    <div class="h-2.5 rounded-full bg-primary transition-all"
+                      style="width: {m.stars > 0 ? Math.max(4, Math.round(m.stars / maxS * 100)) : 0}%"></div>
                   </div>
                   <span class="text-xs text-gray-400 w-4 text-right shrink-0">{m.stars}</span>
                   <span class="text-xs w-9 text-right shrink-0 {m.cycling_km > 0 ? 'text-blue-400' : 'text-gray-700'}">
@@ -203,10 +257,9 @@
               <div class="space-y-2">
                 <div class="text-xs text-gray-500 capitalize font-medium">{person.username}</div>
                 <WeightActivityChart
-                  ninety_days={person.ninety_days}
+                  days={person.daily_history.slice(-90)}
                   weight_history={person.weight_history}
                 />
-                <!-- Compact delete list -->
                 <div class="space-y-1 max-h-28 overflow-y-auto">
                   {#each [...person.weight_history].reverse().slice(0, 15) as entry}
                     <div class="flex items-center gap-1 text-xs">

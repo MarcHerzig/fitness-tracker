@@ -1,14 +1,14 @@
 <script>
   import { onMount } from 'svelte';
 
-  export let ninety_days = [];
+  export let days = [];          // last 90 entries of daily_history
   export let weight_history = [];
 
   let canvas;
   let chart;
 
   function buildData() {
-    const labels = ninety_days.map(d => d.date);
+    const labels = days.map(d => d.date);
 
     // Weight map for exact measurement days
     const weightMap = {};
@@ -27,7 +27,7 @@
       pointRadii.push(weightMap[l] !== undefined ? 3 : 0);
     }
 
-    const activityData = ninety_days.map(d => d.stars);
+    const activityData = days.map(d => d.stars);
 
     // Y-axis range tight around actual weight values
     const vals = Object.values(weightMap);

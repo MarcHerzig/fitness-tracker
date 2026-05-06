@@ -105,17 +105,19 @@ async def build_user_dashboard(db: AsyncSession, user: User) -> UserDashboard:
     weights = bw_result.scalars().all()
     last_weight = weights[0].weight_kg if weights else None
 
-    # Last 90 days for chart
-    ninety_start = today - timedelta(days=89)
-    ninety_days = []
-    for i in range(90):
-        d = ninety_start + timedelta(days=i)
+    # All days in 6-month window (chart + month browser)
+    last_day_of_month = calendar.monthrange(today.year, today.month)[1]
+    end_date = date(today.year, today.month, last_day_of_month)
+    daily_history = []
+    d = six_months_ago
+    while d <= end_date:
         data = per_day.get(d, {})
-        ninety_days.append(DayStars(
+        daily_history.append(DayStars(
             date=d,
             stars=data.get("stars", 0),
             subtypes=sorted(data.get("subtypes", set())),
         ))
+        d += timedelta(days=1)
 
     return UserDashboard(
         user_id=user.id,
@@ -127,7 +129,7 @@ async def build_user_dashboard(db: AsyncSession, user: User) -> UserDashboard:
         last_weight=last_weight,
         weight_history=[BodyWeightOut.model_validate(w) for w in reversed(weights)],
         monthly_stars=monthly_stars,
-        ninety_days=ninety_days,
+        daily_history=daily_history,
     )
 
 
