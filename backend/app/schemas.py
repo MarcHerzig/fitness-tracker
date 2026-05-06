@@ -124,12 +124,13 @@ class UserDashboard(BaseModel):
     user_id: uuid.UUID
     username: str
     today_stars: int
-    month: list[DayStars]  # day 1 to today in current month
+    month: list[DayStars]  # day 1 to last day of current month
     two_week_total_stars: int
     two_week_training_days: int
     last_weight: float | None
     weight_history: list[BodyWeightOut]
     monthly_stars: list[MonthStars]  # last 6 months
+    ninety_days: list[DayStars]  # last 90 days for chart
 
 
 class DashboardOut(BaseModel):

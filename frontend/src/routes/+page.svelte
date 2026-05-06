@@ -3,6 +3,7 @@
   import { goto } from '$app/navigation';
   import { api } from '$lib/api';
   import { user, token } from '$lib/stores';
+  import WeightActivityChart from '$lib/WeightActivityChart.svelte';
 
   let dashboard = null;
   let loading = true;
@@ -194,24 +195,30 @@
 
     <!-- Gewichtsverlauf -->
     {#if (dashboard.marc?.weight_history?.length || dashboard.pia?.weight_history?.length)}
-      <div class="card">
-        <h3 class="text-sm font-semibold text-gray-300 mb-3">Gewichtsverlauf</h3>
-        <div class="grid grid-cols-2 gap-3">
+      <div class="card space-y-3">
+        <h3 class="text-sm font-semibold text-gray-300">Gewichtsverlauf</h3>
+        <div class="grid grid-cols-2 gap-4">
           {#each [dashboard.marc, dashboard.pia] as person}
-            {#if person?.weight_history?.length}
-              <div class="space-y-1.5">
-                <div class="text-xs text-gray-500 capitalize font-medium mb-1">{person.username}</div>
-                {#each [...person.weight_history].reverse().slice(0, 10) as entry}
-                  <div class="flex items-center gap-1 text-xs">
-                    <span class="text-gray-400 shrink-0">
-                      {new Date(entry.measured_at + 'T00:00:00').toLocaleDateString('de-CH', {day:'numeric', month:'short'})}
-                    </span>
-                    <span class="font-medium flex-1 text-right">{entry.weight_kg}</span>
-                    <button
-                      on:click={() => deleteWeight(entry.id)}
-                      class="text-gray-600 hover:text-red-400 transition-colors px-1 shrink-0">✕</button>
-                  </div>
-                {/each}
+            {#if person}
+              <div class="space-y-2">
+                <div class="text-xs text-gray-500 capitalize font-medium">{person.username}</div>
+                <WeightActivityChart
+                  ninety_days={person.ninety_days}
+                  weight_history={person.weight_history}
+                />
+                <!-- Compact delete list -->
+                <div class="space-y-1 max-h-28 overflow-y-auto">
+                  {#each [...person.weight_history].reverse().slice(0, 15) as entry}
+                    <div class="flex items-center gap-1 text-xs">
+                      <span class="text-gray-500 shrink-0">
+                        {new Date(entry.measured_at + 'T00:00:00').toLocaleDateString('de-CH', {day:'numeric', month:'short'})}
+                      </span>
+                      <span class="font-medium flex-1 text-right">{entry.weight_kg} kg</span>
+                      <button on:click={() => deleteWeight(entry.id)}
+                        class="text-gray-700 hover:text-red-400 transition-colors px-1 shrink-0">✕</button>
+                    </div>
+                  {/each}
+                </div>
               </div>
             {/if}
           {/each}
