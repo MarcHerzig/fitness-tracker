@@ -158,59 +158,61 @@
     </div>
 
     <!-- 6-Monats-Statistik -->
-    <div class="card space-y-4">
+    <div class="card space-y-3">
       <h3 class="text-sm font-semibold text-gray-300">Letzte 6 Monate</h3>
-      {#each [dashboard.marc, dashboard.pia] as person}
-        {#if person}
-          {@const maxS = maxMonthStars(person)}
-          <div class="space-y-1">
-            <!-- Person name + column icons -->
-            <div class="flex items-center gap-2 mb-1.5">
-              <span class="text-xs text-gray-500 capitalize font-medium w-12 shrink-0">{person.username}</span>
-              <div class="flex-1"></div>
-              <span class="text-xs text-gray-600 w-5 text-right shrink-0">🏋️</span>
-              <span class="text-xs text-gray-600 w-16 text-right shrink-0">🚴 km</span>
-            </div>
-            {#each [...person.monthly_stars].reverse() as m}
-              <div class="flex items-center gap-2">
-                <span class="text-xs text-gray-500 w-12 shrink-0">{m.label}</span>
-                <div class="flex-1 bg-gray-800 rounded-full h-3 overflow-hidden">
-                  <div
-                    class="h-3 rounded-full bg-primary transition-all"
-                    style="width: {m.stars > 0 ? Math.max(4, Math.round(m.stars / maxS * 100)) : 0}%"
-                  ></div>
-                </div>
-                <span class="text-xs text-gray-400 w-5 text-right shrink-0">{m.stars}</span>
-                <span class="text-xs w-16 text-right shrink-0 {m.cycling_km > 0 ? 'text-blue-400' : 'text-gray-700'}">
-                  {m.cycling_km > 0 ? m.cycling_km : '—'}
-                </span>
+      <div class="grid grid-cols-2 gap-3">
+        {#each [dashboard.marc, dashboard.pia] as person}
+          {#if person}
+            {@const maxS = maxMonthStars(person)}
+            <div class="space-y-1">
+              <div class="flex items-center gap-1 mb-1.5">
+                <span class="text-xs text-gray-500 capitalize font-medium flex-1">{person.username}</span>
+                <span class="text-xs text-gray-600 w-4 text-right shrink-0">🏋️</span>
+                <span class="text-xs text-gray-600 w-9 text-right shrink-0">🚴</span>
               </div>
-            {/each}
-          </div>
-        {/if}
-      {/each}
+              {#each [...person.monthly_stars].reverse() as m}
+                <div class="flex items-center gap-1">
+                  <span class="text-xs text-gray-500 w-9 shrink-0">{m.label}</span>
+                  <div class="flex-1 bg-gray-800 rounded-full h-2.5 overflow-hidden">
+                    <div
+                      class="h-2.5 rounded-full bg-primary transition-all"
+                      style="width: {m.stars > 0 ? Math.max(4, Math.round(m.stars / maxS * 100)) : 0}%"
+                    ></div>
+                  </div>
+                  <span class="text-xs text-gray-400 w-4 text-right shrink-0">{m.stars}</span>
+                  <span class="text-xs w-9 text-right shrink-0 {m.cycling_km > 0 ? 'text-blue-400' : 'text-gray-700'}">
+                    {m.cycling_km > 0 ? m.cycling_km : '—'}
+                  </span>
+                </div>
+              {/each}
+            </div>
+          {/if}
+        {/each}
+      </div>
     </div>
 
     <!-- Gewichtsverlauf -->
     {#if (dashboard.marc?.weight_history?.length || dashboard.pia?.weight_history?.length)}
       <div class="card">
         <h3 class="text-sm font-semibold text-gray-300 mb-3">Gewichtsverlauf</h3>
-        <div class="space-y-1.5">
-          {#each [...(dashboard.marc?.weight_history || []).map(w => ({...w, who:'marc'})),
-                  ...(dashboard.pia?.weight_history || []).map(w => ({...w, who:'pia'}))]
-            .sort((a, b) => b.measured_at.localeCompare(a.measured_at))
-            .slice(0, 20) as entry}
-            <div class="flex items-center justify-between text-sm">
-              <span class="text-gray-400 w-20">
-                {new Date(entry.measured_at + 'T00:00:00').toLocaleDateString('de-CH', {day:'numeric', month:'short'})}
-              </span>
-              <span class="capitalize text-gray-500 text-xs w-10">{entry.who}</span>
-              <span class="font-medium flex-1 text-right">{entry.weight_kg} kg</span>
-              <button
-                on:click={() => deleteWeight(entry.id)}
-                class="ml-3 text-gray-600 hover:text-red-400 transition-colors text-xs px-1"
-                title="Löschen">✕</button>
-            </div>
+        <div class="grid grid-cols-2 gap-3">
+          {#each [dashboard.marc, dashboard.pia] as person}
+            {#if person?.weight_history?.length}
+              <div class="space-y-1.5">
+                <div class="text-xs text-gray-500 capitalize font-medium mb-1">{person.username}</div>
+                {#each [...person.weight_history].reverse().slice(0, 10) as entry}
+                  <div class="flex items-center gap-1 text-xs">
+                    <span class="text-gray-400 shrink-0">
+                      {new Date(entry.measured_at + 'T00:00:00').toLocaleDateString('de-CH', {day:'numeric', month:'short'})}
+                    </span>
+                    <span class="font-medium flex-1 text-right">{entry.weight_kg}</span>
+                    <button
+                      on:click={() => deleteWeight(entry.id)}
+                      class="text-gray-600 hover:text-red-400 transition-colors px-1 shrink-0">✕</button>
+                  </div>
+                {/each}
+              </div>
+            {/if}
           {/each}
         </div>
       </div>
