@@ -2,7 +2,7 @@ from collections import defaultdict
 from datetime import date, timedelta
 
 from fastapi import APIRouter, Depends
-from sqlalchemy import select, func
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
@@ -22,60 +22,66 @@ def _month_label(year: int, month: int) -> str:
 
 async def build_user_dashboard(db: AsyncSession, user: User) -> UserDashboard:
     today = date.today()
-    two_weeks_ago = today - timedelta(days=13)
+    month_start = date(today.year, today.month, 1)
 
-    # Last 14 days
-    result = await db.execute(
-        select(Activity.activity_date, Activity.stars)
-        .where(Activity.user_id == user.id, Activity.activity_date >= two_weeks_ago)
-    )
-    by_date: dict[date, int] = defaultdict(int)
-    for d, s in result.all():
-        by_date[d] = min(by_date[d] + s, 3)
-
-    week = [DayStars(date=today - timedelta(days=i), stars=by_date.get(today - timedelta(days=i), 0))
-            for i in range(6, -1, -1)]
-    today_stars = by_date.get(today, 0)
-    two_week_total_stars = sum(by_date.values())
-    two_week_training_days = sum(1 for s in by_date.values() if s > 0)
-
-    # Last 6 months
-    six_months_ago = date(today.year, today.month, 1)
+    # Start of 6-month window (first day, 5 months back)
+    six_months_ago = month_start
     for _ in range(5):
         if six_months_ago.month == 1:
             six_months_ago = date(six_months_ago.year - 1, 12, 1)
         else:
             six_months_ago = date(six_months_ago.year, six_months_ago.month - 1, 1)
 
-    monthly_result = await db.execute(
-        select(Activity.activity_date, Activity.stars)
+    # Single query covering all 6 months
+    result = await db.execute(
+        select(Activity.activity_date, Activity.stars, Activity.subtype, Activity.distance_km)
         .where(Activity.user_id == user.id, Activity.activity_date >= six_months_ago)
     )
-    # Per day capped, then sum per month
-    day_stars: dict[date, int] = defaultdict(int)
-    for d, s in monthly_result.all():
-        day_stars[d] = min(day_stars[d] + s, 3)
+    all_rows = result.all()
 
+    # Accumulate per-day: stars (capped at 3) and cycling km
+    per_day: dict[date, dict] = defaultdict(lambda: {"stars": 0, "cycling_km": 0.0})
+    for d, s, subtype, dist_km in all_rows:
+        per_day[d]["stars"] = min(per_day[d]["stars"] + s, 3)
+        if subtype == "cycling" and dist_km:
+            per_day[d]["cycling_km"] += dist_km
+
+    # Two-week summary
+    two_weeks_ago = today - timedelta(days=13)
+    today_stars = per_day[today]["stars"] if today in per_day else 0
+    two_week_total_stars = sum(v["stars"] for d, v in per_day.items() if d >= two_weeks_ago)
+    two_week_training_days = sum(1 for d, v in per_day.items() if d >= two_weeks_ago and v["stars"] > 0)
+
+    # Current month: day 1 through today
+    month_days = [
+        DayStars(date=date(today.year, today.month, day_num),
+                 stars=per_day.get(date(today.year, today.month, day_num), {}).get("stars", 0))
+        for day_num in range(1, today.day + 1)
+    ]
+
+    # 6-month aggregation
     month_data: dict[tuple, dict] = {}
-    for d, s in day_stars.items():
+    for d, data in per_day.items():
         key = (d.year, d.month)
         if key not in month_data:
-            month_data[key] = {"stars": 0, "training_days": 0}
-        month_data[key]["stars"] += s
-        if s > 0:
+            month_data[key] = {"stars": 0, "training_days": 0, "cycling_km": 0.0}
+        month_data[key]["stars"] += data["stars"]
+        if data["stars"] > 0:
             month_data[key]["training_days"] += 1
+        month_data[key]["cycling_km"] += data["cycling_km"]
 
     monthly_stars = []
     cur = six_months_ago
     for _ in range(6):
         key = (cur.year, cur.month)
-        data = month_data.get(key, {"stars": 0, "training_days": 0})
+        data = month_data.get(key, {"stars": 0, "training_days": 0, "cycling_km": 0.0})
         monthly_stars.append(MonthStars(
             year=cur.year,
             month=cur.month,
             label=_month_label(cur.year, cur.month),
             stars=data["stars"],
             training_days=data["training_days"],
+            cycling_km=round(data["cycling_km"], 1),
         ))
         if cur.month == 12:
             cur = date(cur.year + 1, 1, 1)
@@ -96,7 +102,7 @@ async def build_user_dashboard(db: AsyncSession, user: User) -> UserDashboard:
         user_id=user.id,
         username=user.username,
         today_stars=today_stars,
-        week=week,
+        month=month_days,
         two_week_total_stars=two_week_total_stars,
         two_week_training_days=two_week_training_days,
         last_weight=last_weight,

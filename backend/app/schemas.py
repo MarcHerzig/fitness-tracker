@@ -116,13 +116,14 @@ class MonthStars(BaseModel):
     label: str   # "Jan 25", "Feb 25", etc.
     stars: int   # total capped daily stars summed for the month
     training_days: int
+    cycling_km: float = 0.0
 
 
 class UserDashboard(BaseModel):
     user_id: uuid.UUID
     username: str
     today_stars: int
-    week: list[DayStars]  # last 7 days
+    month: list[DayStars]  # day 1 to today in current month
     two_week_total_stars: int
     two_week_training_days: int
     last_weight: float | None

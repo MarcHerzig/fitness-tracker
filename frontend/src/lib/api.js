@@ -47,6 +47,7 @@ export const api = {
   createExercise: (data) => request('POST', '/exercises', data),
   updateExercise: (id, data) => request('PATCH', `/exercises/${id}`, data),
   deleteExercise: (id) => request('DELETE', `/exercises/${id}`),
+  reorderExercises: (ids) => request('PUT', '/exercises/reorder', ids),
 
   getBodyWeights: () => request('GET', '/bodyweight'),
   addBodyWeight: (data) => request('POST', '/bodyweight', data),

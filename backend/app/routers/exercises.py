@@ -63,6 +63,25 @@ async def update_exercise(
     return template
 
 
+@router.put("/reorder", status_code=204)
+async def reorder_exercises(
+    ids: list[uuid.UUID],
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    result = await db.execute(
+        select(ExerciseTemplate).where(
+            ExerciseTemplate.user_id == current_user.id,
+            ExerciseTemplate.is_active == True,
+        )
+    )
+    templates = {t.id: t for t in result.scalars().all()}
+    for i, eid in enumerate(ids):
+        if eid in templates:
+            templates[eid].sort_order = i
+    await db.commit()
+
+
 @router.delete("/{exercise_id}", status_code=204)
 async def delete_exercise(
     exercise_id: uuid.UUID,

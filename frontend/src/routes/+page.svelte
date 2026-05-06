@@ -11,7 +11,7 @@
   let weightDate = new Date().toISOString().split('T')[0];
   let weightError = '';
 
-  const DAYS = ['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa'];
+  const DAY_LABELS = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'];
 
   onMount(async () => {
     try {
@@ -27,11 +27,25 @@
     return '★'.repeat(n) + '☆'.repeat(3 - n);
   }
 
-  function dayLabel(dateStr) {
-    const d = new Date(dateStr + 'T00:00:00');
-    const today = new Date(); today.setHours(0,0,0,0);
-    if (d.getTime() === today.getTime()) return 'Heu';
-    return DAYS[d.getDay()];
+  // Build month grid: array of {day, stars} | null (empty offset cells)
+  function monthGrid(monthDays) {
+    if (!monthDays?.length) return [];
+    const first = new Date(monthDays[0].date + 'T00:00:00');
+    // Mon=0 … Sun=6
+    const offset = (first.getDay() + 6) % 7;
+    const cells = Array(offset).fill(null);
+    for (const d of monthDays) {
+      const dayNum = new Date(d.date + 'T00:00:00').getDate();
+      cells.push({ day: dayNum, stars: d.stars });
+    }
+    return cells;
+  }
+
+  function starColor(s) {
+    if (s >= 3) return 'bg-primary';
+    if (s === 2) return 'bg-primary/60';
+    if (s === 1) return 'bg-primary/30';
+    return 'bg-gray-800';
   }
 
   async function submitWeight() {
@@ -57,7 +71,6 @@
     goto('/login');
   }
 
-  // Max stars in 6 months for bar chart scaling
   function maxMonthStars(person) {
     if (!person?.monthly_stars?.length) return 1;
     return Math.max(1, ...person.monthly_stars.map(m => m.stars));
@@ -83,24 +96,34 @@
     <div class="grid grid-cols-2 gap-3">
       {#each [dashboard.marc, dashboard.pia] as person}
         {#if person}
+          {@const grid = monthGrid(person.month)}
           <div class="card space-y-3">
             <div class="flex items-center justify-between">
               <span class="font-bold capitalize">{person.username}</span>
               <span class="text-primary font-bold text-sm">{stars(person.today_stars)}</span>
             </div>
 
-            <!-- Week strip -->
-            <div class="grid grid-cols-7 gap-px">
-              {#each person.week as day}
-                <div class="flex flex-col items-center gap-0.5">
-                  <span class="text-gray-500 text-xs leading-none">{dayLabel(day.date)}</span>
-                  <div class="flex flex-col gap-px mt-0.5">
-                    {#each [3,2,1] as s}
-                      <div class="w-2.5 h-2.5 rounded-full {day.stars >= s ? 'bg-primary' : 'bg-gray-700'}"></div>
-                    {/each}
-                  </div>
-                </div>
-              {/each}
+            <!-- Month calendar -->
+            <div>
+              <!-- Day-of-week header -->
+              <div class="grid grid-cols-7 gap-px mb-1">
+                {#each DAY_LABELS as lbl}
+                  <div class="text-center text-gray-600 text-xs leading-none">{lbl}</div>
+                {/each}
+              </div>
+              <!-- Day cells -->
+              <div class="grid grid-cols-7 gap-px">
+                {#each grid as cell}
+                  {#if cell === null}
+                    <div></div>
+                  {:else}
+                    <div class="flex flex-col items-center gap-0.5">
+                      <div class="text-gray-600 text-xs leading-none">{cell.day}</div>
+                      <div class="w-full aspect-square rounded-sm {starColor(cell.stars)}"></div>
+                    </div>
+                  {/if}
+                {/each}
+              </div>
             </div>
 
             <!-- 2-week summary -->
@@ -127,15 +150,20 @@
               <div class="text-xs text-gray-500 capitalize mb-2">{person.username}</div>
               <div class="space-y-1.5">
                 {#each person.monthly_stars as m}
-                  <div class="flex items-center gap-2">
-                    <span class="text-xs text-gray-500 w-10 shrink-0">{m.label}</span>
+                  <div class="flex items-center gap-1.5">
+                    <span class="text-xs text-gray-500 w-9 shrink-0">{m.label}</span>
                     <div class="flex-1 bg-gray-800 rounded-full h-3 overflow-hidden">
                       <div
                         class="h-3 rounded-full bg-primary transition-all"
                         style="width: {m.stars > 0 ? Math.max(6, Math.round(m.stars / maxS * 100)) : 0}%"
                       ></div>
                     </div>
-                    <span class="text-xs text-gray-400 w-6 text-right shrink-0">{m.stars}</span>
+                    <span class="text-xs text-gray-400 w-5 text-right shrink-0">{m.stars}</span>
+                    {#if m.cycling_km > 0}
+                      <span class="text-xs text-blue-400 w-10 text-right shrink-0">🚴{m.cycling_km}</span>
+                    {:else}
+                      <span class="w-10 shrink-0"></span>
+                    {/if}
                   </div>
                 {/each}
               </div>

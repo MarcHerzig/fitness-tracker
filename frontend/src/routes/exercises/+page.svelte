@@ -44,6 +44,15 @@
     await api.deleteExercise(id);
     exercises = exercises.filter(e => e.id !== id);
   }
+
+  async function move(index, dir) {
+    const target = index + dir;
+    if (target < 0 || target >= exercises.length) return;
+    const arr = [...exercises];
+    [arr[index], arr[target]] = [arr[target], arr[index]];
+    exercises = arr;
+    await api.reorderExercises(arr.map(e => e.id));
+  }
 </script>
 
 <div class="space-y-4">
@@ -56,11 +65,21 @@
     <div class="text-center text-gray-500 py-8">Laden...</div>
   {:else}
     <div class="space-y-2">
-      {#each exercises as ex}
+      {#each exercises as ex, i}
         <div class="card">
-          <div class="flex items-center gap-3">
-            <div class="flex-1">
-              <div class="font-medium">{ex.name}</div>
+          <div class="flex items-center gap-2">
+            <!-- Sort buttons -->
+            <div class="flex flex-col gap-0.5">
+              <button on:click={() => move(i, -1)}
+                class="text-gray-600 hover:text-gray-300 text-xs leading-none px-1 disabled:opacity-20"
+                disabled={i === 0}>▲</button>
+              <button on:click={() => move(i, 1)}
+                class="text-gray-600 hover:text-gray-300 text-xs leading-none px-1 disabled:opacity-20"
+                disabled={i === exercises.length - 1}>▼</button>
+            </div>
+
+            <div class="flex-1 min-w-0">
+              <div class="font-medium truncate">{ex.name}</div>
               <div class="text-xs text-gray-400">
                 {ex.is_duration_based ? '10 min / Satz' : ex.weight_kg ? `${ex.weight_kg} kg` : 'Körpergewicht'}
               </div>
