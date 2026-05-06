@@ -5,38 +5,52 @@
   export let weight_history = [];
 
   let canvas;
+  let chart;
 
-  onMount(async () => {
-    const { default: Chart } = await import('chart.js/auto');
+  function buildData() {
+    const labels = ninety_days.map(d => d.date);
 
-    // Activity map: dateStr → stars
-    const activityMap = {};
-    for (const d of ninety_days) activityMap[d.date] = d.stars;
-
-    // Weight map: dateStr → kg (only entries within last 90 days)
-    const cutoff = ninety_days[0]?.date ?? '';
+    // Weight map for exact measurement days
     const weightMap = {};
-    for (const w of weight_history) {
-      if (w.measured_at >= cutoff) weightMap[w.measured_at] = w.weight_kg;
+    for (const w of weight_history) weightMap[w.measured_at] = w.weight_kg;
+
+    // Forward-fill: seed with most recent measurement before the window
+    const cutoff = labels[0] ?? '';
+    const older = weight_history.filter(w => w.measured_at < cutoff);
+    let carry = older.length ? older[older.length - 1].weight_kg : null;
+
+    const weightData = [];
+    const pointRadii = [];
+    for (const l of labels) {
+      if (weightMap[l] !== undefined) carry = weightMap[l];
+      weightData.push(carry);
+      pointRadii.push(weightMap[l] !== undefined ? 3 : 0);
     }
 
-    // Build parallel arrays over 90 days
-    const labels = ninety_days.map(d => d.date);
-    const activityData = labels.map(l => activityMap[l] ?? 0);
-    const weightData = labels.map(l => weightMap[l] ?? null);
+    const activityData = ninety_days.map(d => d.stars);
 
-    // Weight axis range: tight around actual values
-    const vals = weightData.filter(v => v !== null);
+    // Y-axis range tight around actual weight values
+    const vals = Object.values(weightMap);
+    if (carry !== null && !vals.includes(carry)) vals.push(carry);
     const wMin = vals.length ? Math.floor(Math.min(...vals)) - 1 : 60;
     const wMax = vals.length ? Math.ceil(Math.max(...vals))  + 1 : 100;
 
-    // X-tick labels: ~monthly markers
-    const tickLabels = labels.map((l, i) => {
+    // X month labels
+    const tickLabels = labels.map(l => {
       const d = new Date(l + 'T00:00:00');
-      return d.getDate() === 1 ? d.toLocaleDateString('de-CH', { month: 'short' }) : '';
+      return d.getDate() === 1
+        ? d.toLocaleDateString('de-CH', { month: 'short' })
+        : null;
     });
 
-    const chart = new Chart(canvas, {
+    return { labels, weightData, activityData, pointRadii, wMin, wMax, tickLabels };
+  }
+
+  onMount(async () => {
+    const { default: Chart } = await import('chart.js/auto');
+    const { labels, weightData, activityData, pointRadii, wMin, wMax, tickLabels } = buildData();
+
+    chart = new Chart(canvas, {
       type: 'line',
       data: {
         labels,
@@ -46,11 +60,10 @@
             borderColor: '#60a5fa',
             backgroundColor: 'transparent',
             borderWidth: 2,
-            pointRadius: weightData.map(v => v !== null ? 3 : 0),
+            pointRadius: pointRadii,
             pointBackgroundColor: '#60a5fa',
-            spanGaps: true,
             yAxisID: 'yW',
-            tension: 0.3,
+            tension: 0,
             order: 1,
           },
           {
@@ -80,9 +93,8 @@
             callbacks: {
               title: ([item]) => new Date(item.label + 'T00:00:00')
                 .toLocaleDateString('de-CH', { day: 'numeric', month: 'short' }),
-              label: (item) => {
-                if (item.datasetIndex === 0)
-                  return item.raw != null ? `⚖️ ${item.raw} kg` : null;
+              label: item => {
+                if (item.datasetIndex === 0) return item.raw != null ? `⚖️ ${item.raw} kg` : null;
                 return item.raw > 0 ? `🏋️ ${item.raw}` : null;
               },
             },
@@ -97,7 +109,7 @@
               color: '#6b7280',
               font: { size: 9 },
               maxRotation: 0,
-              callback: (_, i) => tickLabels[i] || null,
+              callback: (_, i) => tickLabels[i] ?? null,
             },
           },
           yW: {
@@ -118,8 +130,17 @@
       },
     });
 
-    return () => chart.destroy();
+    return () => chart?.destroy();
   });
+
+  // Update chart when new weight or activity data arrives
+  $: if (chart) {
+    const { weightData, activityData, pointRadii } = buildData();
+    chart.data.datasets[0].data = weightData;
+    chart.data.datasets[0].pointRadius = pointRadii;
+    chart.data.datasets[1].data = activityData;
+    chart.update('none');
+  }
 </script>
 
 <div class="h-28 relative">
