@@ -160,9 +160,9 @@
                     </div>
                     <span class="text-xs text-gray-400 w-5 text-right shrink-0">{m.stars}</span>
                     {#if m.cycling_km > 0}
-                      <span class="text-xs text-blue-400 w-10 text-right shrink-0">🚴{m.cycling_km}</span>
+                      <span class="text-xs text-blue-400 w-12 text-right shrink-0 whitespace-nowrap">🚴{m.cycling_km}</span>
                     {:else}
-                      <span class="w-10 shrink-0"></span>
+                      <span class="w-12 shrink-0"></span>
                     {/if}
                   </div>
                 {/each}

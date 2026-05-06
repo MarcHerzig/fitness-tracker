@@ -1,3 +1,4 @@
+import calendar
 from collections import defaultdict
 from datetime import date, timedelta
 
@@ -52,11 +53,12 @@ async def build_user_dashboard(db: AsyncSession, user: User) -> UserDashboard:
     two_week_total_stars = sum(v["stars"] for d, v in per_day.items() if d >= two_weeks_ago)
     two_week_training_days = sum(1 for d, v in per_day.items() if d >= two_weeks_ago and v["stars"] > 0)
 
-    # Current month: day 1 through today
+    # Current month: all days (future days always 0 stars)
+    last_day = calendar.monthrange(today.year, today.month)[1]
     month_days = [
         DayStars(date=date(today.year, today.month, day_num),
                  stars=per_day.get(date(today.year, today.month, day_num), {}).get("stars", 0))
-        for day_num in range(1, today.day + 1)
+        for day_num in range(1, last_day + 1)
     ]
 
     # 6-month aggregation
