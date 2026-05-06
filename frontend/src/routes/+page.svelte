@@ -166,14 +166,15 @@
             {@const maxS = maxMonthStars(person)}
             <div class="space-y-1">
               <div class="flex items-center gap-1 mb-1.5">
-                <span class="text-xs text-gray-500 capitalize font-medium flex-1">{person.username}</span>
+                <span class="text-xs text-gray-500 capitalize font-medium w-11 shrink-0">{person.username}</span>
+                <div class="w-10 shrink-0"></div>
                 <span class="text-xs text-gray-600 w-4 text-right shrink-0">🏋️</span>
                 <span class="text-xs text-gray-600 w-9 text-right shrink-0">🚴</span>
               </div>
               {#each [...person.monthly_stars].reverse() as m}
                 <div class="flex items-center gap-1">
-                  <span class="text-xs text-gray-500 w-9 shrink-0">{m.label}</span>
-                  <div class="flex-1 bg-gray-800 rounded-full h-2.5 overflow-hidden">
+                  <span class="text-xs text-gray-500 w-11 shrink-0">{m.label}</span>
+                  <div class="w-10 shrink-0 bg-gray-800 rounded-full h-2.5 overflow-hidden">
                     <div
                       class="h-2.5 rounded-full bg-primary transition-all"
                       style="width: {m.stars > 0 ? Math.max(4, Math.round(m.stars / maxS * 100)) : 0}%"
