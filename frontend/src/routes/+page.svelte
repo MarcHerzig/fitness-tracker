@@ -260,18 +260,6 @@
                   days={person.daily_history.slice(-90)}
                   weight_history={person.weight_history}
                 />
-                <div class="space-y-1 max-h-28 overflow-y-auto">
-                  {#each [...person.weight_history].reverse().slice(0, 15) as entry}
-                    <div class="flex items-center gap-1 text-xs">
-                      <span class="text-gray-500 shrink-0">
-                        {new Date(entry.measured_at + 'T00:00:00').toLocaleDateString('de-CH', {day:'numeric', month:'short'})}
-                      </span>
-                      <span class="font-medium flex-1 text-right">{entry.weight_kg} kg</span>
-                      <button on:click={() => deleteWeight(entry.id)}
-                        class="text-gray-700 hover:text-red-400 transition-colors px-1 shrink-0">✕</button>
-                    </div>
-                  {/each}
-                </div>
               </div>
             {/if}
           {/each}
