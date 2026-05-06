@@ -108,6 +108,7 @@ class BodyWeightOut(BaseModel):
 class DayStars(BaseModel):
     date: date
     stars: int  # 0–3 combined across all activities
+    subtypes: list[str] = []  # e.g. ['cycling', 'strength', 'hiking']
 
 
 class MonthStars(BaseModel):

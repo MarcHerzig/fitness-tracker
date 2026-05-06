@@ -13,6 +13,25 @@
 
   const DAY_LABELS = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'];
 
+  const EMOJI = {
+    cycling:  '🚴',
+    running:  '🏃',
+    hiking:   '🥾',
+    swimming: '🏊',
+    strength: '🏋️',
+  };
+
+  function activityEmoji(subtypes) {
+    return subtypes.map(s => EMOJI[s] ?? '●').join('');
+  }
+
+  function todayEmoji(person) {
+    const todayStr = new Date().toISOString().split('T')[0];
+    const day = person.month?.find(d => d.date === todayStr);
+    if (day?.subtypes?.length) return activityEmoji(day.subtypes);
+    return person.today_stars > 0 ? '🏋️' : '';
+  }
+
   onMount(async () => {
     try {
       dashboard = await api.dashboard();
@@ -23,20 +42,15 @@
     }
   });
 
-  function stars(n) {
-    return '★'.repeat(n) + '☆'.repeat(3 - n);
-  }
-
-  // Build month grid: array of {day, stars} | null (empty offset cells)
+  // Build month grid: array of {day, stars, subtypes} | null (empty offset cells)
   function monthGrid(monthDays) {
     if (!monthDays?.length) return [];
     const first = new Date(monthDays[0].date + 'T00:00:00');
-    // Mon=0 … Sun=6
-    const offset = (first.getDay() + 6) % 7;
+    const offset = (first.getDay() + 6) % 7; // Mon=0 … Sun=6
     const cells = Array(offset).fill(null);
     for (const d of monthDays) {
       const dayNum = new Date(d.date + 'T00:00:00').getDate();
-      cells.push({ day: dayNum, stars: d.stars });
+      cells.push({ day: dayNum, stars: d.stars, subtypes: d.subtypes ?? [] });
     }
     return cells;
   }
@@ -100,7 +114,7 @@
           <div class="card space-y-3">
             <div class="flex items-center justify-between">
               <span class="font-bold capitalize">{person.username}</span>
-              <span class="text-primary font-bold text-sm">{stars(person.today_stars)}</span>
+              <span class="text-lg leading-none">{todayEmoji(person)}</span>
             </div>
 
             <!-- Month calendar -->
@@ -119,7 +133,11 @@
                   {:else}
                     <div class="flex flex-col items-center gap-0.5">
                       <div class="text-gray-600 text-xs leading-none">{cell.day}</div>
-                      <div class="w-full aspect-square rounded-sm {starColor(cell.stars)}"></div>
+                      <div class="w-full aspect-square rounded-sm {starColor(cell.stars)} flex items-center justify-center overflow-hidden">
+                        {#if cell.stars > 0}
+                          <span style="font-size:0.65rem;line-height:1">{activityEmoji(cell.subtypes)}</span>
+                        {/if}
+                      </div>
                     </div>
                   {/if}
                 {/each}
@@ -150,7 +168,7 @@
             <div class="flex items-center gap-2 mb-1.5">
               <span class="text-xs text-gray-500 capitalize font-medium w-12 shrink-0">{person.username}</span>
               <div class="flex-1"></div>
-              <span class="text-xs text-gray-600 w-5 text-right shrink-0">⭐</span>
+              <span class="text-xs text-gray-600 w-5 text-right shrink-0">🏋️</span>
               <span class="text-xs text-gray-600 w-16 text-right shrink-0">🚴 km</span>
             </div>
             {#each [...person.monthly_stars].reverse() as m}

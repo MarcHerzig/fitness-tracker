@@ -40,10 +40,11 @@ async def build_user_dashboard(db: AsyncSession, user: User) -> UserDashboard:
     )
     all_rows = result.all()
 
-    # Accumulate per-day: stars (capped at 3) and cycling km
-    per_day: dict[date, dict] = defaultdict(lambda: {"stars": 0, "cycling_km": 0.0})
+    # Accumulate per-day: stars (capped at 3), cycling km, subtypes
+    per_day: dict[date, dict] = defaultdict(lambda: {"stars": 0, "cycling_km": 0.0, "subtypes": set()})
     for d, s, subtype, dist_km in all_rows:
         per_day[d]["stars"] = min(per_day[d]["stars"] + s, 3)
+        per_day[d]["subtypes"].add(subtype)
         if subtype == "cycling" and dist_km:
             per_day[d]["cycling_km"] += dist_km
 
@@ -55,11 +56,15 @@ async def build_user_dashboard(db: AsyncSession, user: User) -> UserDashboard:
 
     # Current month: all days (future days always 0 stars)
     last_day = calendar.monthrange(today.year, today.month)[1]
-    month_days = [
-        DayStars(date=date(today.year, today.month, day_num),
-                 stars=per_day.get(date(today.year, today.month, day_num), {}).get("stars", 0))
-        for day_num in range(1, last_day + 1)
-    ]
+    month_days = []
+    for day_num in range(1, last_day + 1):
+        d = date(today.year, today.month, day_num)
+        data = per_day.get(d, {})
+        month_days.append(DayStars(
+            date=d,
+            stars=data.get("stars", 0),
+            subtypes=sorted(data.get("subtypes", set())),
+        ))
 
     # 6-month aggregation
     month_data: dict[tuple, dict] = {}
