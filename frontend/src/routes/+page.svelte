@@ -140,37 +140,33 @@
     </div>
 
     <!-- 6-Monats-Statistik -->
-    <div class="card space-y-3">
+    <div class="card space-y-4">
       <h3 class="text-sm font-semibold text-gray-300">Letzte 6 Monate</h3>
-      <div class="grid grid-cols-2 gap-4">
-        {#each [dashboard.marc, dashboard.pia] as person}
-          {#if person}
-            {@const maxS = maxMonthStars(person)}
-            <div>
-              <div class="text-xs text-gray-500 capitalize mb-2">{person.username}</div>
-              <div class="space-y-1.5">
-                {#each person.monthly_stars as m}
-                  <div class="flex items-center gap-1.5">
-                    <span class="text-xs text-gray-500 w-9 shrink-0">{m.label}</span>
-                    <div class="flex-1 bg-gray-800 rounded-full h-3 overflow-hidden">
-                      <div
-                        class="h-3 rounded-full bg-primary transition-all"
-                        style="width: {m.stars > 0 ? Math.max(6, Math.round(m.stars / maxS * 100)) : 0}%"
-                      ></div>
-                    </div>
-                    <span class="text-xs text-gray-400 w-5 text-right shrink-0">{m.stars}</span>
-                    {#if m.cycling_km > 0}
-                      <span class="text-xs text-blue-400 w-12 text-right shrink-0 whitespace-nowrap">🚴{m.cycling_km}</span>
-                    {:else}
-                      <span class="w-12 shrink-0"></span>
-                    {/if}
-                  </div>
-                {/each}
+      {#each [dashboard.marc, dashboard.pia] as person}
+        {#if person}
+          {@const maxS = maxMonthStars(person)}
+          <div class="space-y-1.5">
+            <div class="text-xs text-gray-500 capitalize font-medium">{person.username}</div>
+            {#each person.monthly_stars as m}
+              <div class="flex items-center gap-2">
+                <span class="text-xs text-gray-500 w-12 shrink-0">{m.label}</span>
+                <div class="flex-1 bg-gray-800 rounded-full h-3 overflow-hidden">
+                  <div
+                    class="h-3 rounded-full bg-primary transition-all"
+                    style="width: {m.stars > 0 ? Math.max(4, Math.round(m.stars / maxS * 100)) : 0}%"
+                  ></div>
+                </div>
+                <span class="text-xs text-gray-400 w-5 text-right shrink-0">{m.stars}</span>
+                {#if m.cycling_km > 0}
+                  <span class="text-xs text-blue-400 w-16 text-right shrink-0 whitespace-nowrap">🚴 {m.cycling_km} km</span>
+                {:else}
+                  <span class="w-16 shrink-0"></span>
+                {/if}
               </div>
-            </div>
-          {/if}
-        {/each}
-      </div>
+            {/each}
+          </div>
+        {/if}
+      {/each}
     </div>
 
     <!-- Gewichtsverlauf -->
