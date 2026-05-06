@@ -53,10 +53,10 @@
   }
   function goToToday() { viewYear = NOW.getFullYear(); viewMonth = NOW.getMonth() + 1; }
 
-  function getViewMonthDays(person) {
+  function getViewMonthDays(person, y, m) {
     return (person?.daily_history ?? []).filter(d => {
-      const [y, m] = d.date.split('-').map(Number);
-      return y === viewYear && m === viewMonth;
+      const [dy, dm] = d.date.split('-').map(Number);
+      return dy === y && dm === m;
     });
   }
 
@@ -167,7 +167,7 @@
     <div class="grid grid-cols-2 gap-3">
       {#each [dashboard.marc, dashboard.pia] as person}
         {#if person}
-          {@const grid = monthGrid(getViewMonthDays(person))}
+          {@const grid = monthGrid(getViewMonthDays(person, viewYear, viewMonth))}
           <div class="card space-y-3">
             <div class="flex items-center justify-between">
               <span class="font-bold capitalize">{person.username}</span>
