@@ -145,9 +145,15 @@
       {#each [dashboard.marc, dashboard.pia] as person}
         {#if person}
           {@const maxS = maxMonthStars(person)}
-          <div class="space-y-1.5">
-            <div class="text-xs text-gray-500 capitalize font-medium">{person.username}</div>
-            {#each person.monthly_stars as m}
+          <div class="space-y-1">
+            <!-- Person name + column icons -->
+            <div class="flex items-center gap-2 mb-1.5">
+              <span class="text-xs text-gray-500 capitalize font-medium w-12 shrink-0">{person.username}</span>
+              <div class="flex-1"></div>
+              <span class="text-xs text-gray-600 w-5 text-right shrink-0">⭐</span>
+              <span class="text-xs text-gray-600 w-16 text-right shrink-0">🚴 km</span>
+            </div>
+            {#each [...person.monthly_stars].reverse() as m}
               <div class="flex items-center gap-2">
                 <span class="text-xs text-gray-500 w-12 shrink-0">{m.label}</span>
                 <div class="flex-1 bg-gray-800 rounded-full h-3 overflow-hidden">
@@ -157,11 +163,9 @@
                   ></div>
                 </div>
                 <span class="text-xs text-gray-400 w-5 text-right shrink-0">{m.stars}</span>
-                {#if m.cycling_km > 0}
-                  <span class="text-xs text-blue-400 w-16 text-right shrink-0 whitespace-nowrap">🚴 {m.cycling_km} km</span>
-                {:else}
-                  <span class="w-16 shrink-0"></span>
-                {/if}
+                <span class="text-xs w-16 text-right shrink-0 {m.cycling_km > 0 ? 'text-blue-400' : 'text-gray-700'}">
+                  {m.cycling_km > 0 ? m.cycling_km : '—'}
+                </span>
               </div>
             {/each}
           </div>
